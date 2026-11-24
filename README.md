@@ -23,3 +23,8 @@ Mở `index.html` bằng trình duyệt (hoặc `npx serve .`).
 | Hành tinh sụp đổ theo thời gian | Không đứng chờ được mãi, lúc nào cũng có áp lực |
 | Độ khó tăng dần: vòng hút nhỏ lại, quay nhanh hơn, có hành tinh di chuyển | Cảm giác mình ngày càng giỏi lên |
 | Game over báo "chỉ còn N nữa thôi!" | Khiến người chơi muốn thử thêm ván nữa |
+
+## Cấu trúc
+
+- `game.js`: logic game (state, vật lý, input) và phần render mỗi frame.
+- `art.js`: tạo sprite hành tinh, mây, sao và tinh vân. Mỗi sprite vẽ một lần vào offscreen canvas rồi dùng lại ở mọi frame, nên game giữ được 60 FPS.

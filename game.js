@@ -12,17 +12,17 @@ const ZONE_SIZE = 10;
 const BEST_KEY = "orbit-climb-best";
 
 const ZONES = [
-  { name: "Mặt đất", top: [40, 70, 140], bottom: [120, 170, 230] },
-  { name: "Tầng mây", top: [30, 50, 120], bottom: [90, 130, 210] },
-  { name: "Bình lưu", top: [25, 30, 95], bottom: [70, 80, 170] },
-  { name: "Quỹ đạo thấp", top: [15, 15, 60], bottom: [50, 40, 120] },
-  { name: "Mặt Trăng", top: [10, 10, 35], bottom: [45, 45, 70] },
-  { name: "Sao Hỏa", top: [25, 8, 20], bottom: [90, 35, 30] },
-  { name: "Vành đai", top: [12, 8, 30], bottom: [60, 40, 80] },
-  { name: "Sao Mộc", top: [30, 15, 10], bottom: [110, 70, 40] },
-  { name: "Rìa hệ Mặt Trời", top: [5, 10, 25], bottom: [20, 60, 80] },
-  { name: "Liên sao", top: [10, 0, 25], bottom: [70, 10, 90] },
-  { name: "Vô tận", top: [0, 0, 0], bottom: [15, 15, 30] },
+  { name: "Mặt đất", top: [40, 70, 140], bottom: [120, 170, 230], nebula: [90, 160, 255] },
+  { name: "Tầng mây", top: [30, 50, 120], bottom: [90, 130, 210], nebula: [120, 140, 255] },
+  { name: "Bình lưu", top: [25, 30, 95], bottom: [70, 80, 170], nebula: [140, 110, 255] },
+  { name: "Quỹ đạo thấp", top: [15, 15, 60], bottom: [50, 40, 120], nebula: [90, 80, 220] },
+  { name: "Mặt Trăng", top: [10, 10, 35], bottom: [45, 45, 70], nebula: [160, 160, 200] },
+  { name: "Sao Hỏa", top: [25, 8, 20], bottom: [90, 35, 30], nebula: [255, 110, 70] },
+  { name: "Vành đai", top: [12, 8, 30], bottom: [60, 40, 80], nebula: [200, 90, 255] },
+  { name: "Sao Mộc", top: [30, 15, 10], bottom: [110, 70, 40], nebula: [255, 160, 80] },
+  { name: "Rìa hệ Mặt Trời", top: [5, 10, 25], bottom: [20, 60, 80], nebula: [60, 220, 220] },
+  { name: "Liên sao", top: [10, 0, 25], bottom: [70, 10, 90], nebula: [255, 60, 200] },
+  { name: "Vô tận", top: [0, 0, 0], bottom: [15, 15, 30], nebula: [120, 120, 255] },
 ];
 
 // ---------- Helpers ----------
@@ -91,8 +91,9 @@ function makeNode(index, prev) {
     life: Math.max(1.6, 4.5 - level * 0.035),
     timer: 0,
     vx: 0,
-    hue: Math.random() * 360,
+    look: randomPlanetLook(),
   };
+  node.sprite = createPlanetSprite(R, node.look);
 
   if (prev) {
     const gap = 160 + Math.min(level, 60) * 1.6 + Math.random() * 50;
@@ -116,13 +117,6 @@ function ensureNodes() {
   }
 }
 
-const stars = Array.from({ length: 90 }, () => ({
-  x: Math.random() * W,
-  y: Math.random() * H,
-  size: Math.random() * 1.6 + 0.4,
-  depth: Math.random() * 0.3 + 0.05,
-}));
-
 // ---------- Game state ----------
 let nodes;
 let player;
@@ -142,6 +136,8 @@ let beatBest;
 let banner;
 let bgTop;
 let bgBottom;
+let bgNebula;
+let time = 0;
 
 function resetGame() {
   nodes = [makeNode(0, null)];
@@ -171,6 +167,7 @@ function resetGame() {
   banner = null;
   bgTop = ZONES[0].top;
   bgBottom = ZONES[0].bottom;
+  bgNebula = ZONES[0].nebula;
   ensureNodes();
 }
 
@@ -312,7 +309,7 @@ function updatePlayer(dt) {
     if (state === "play") {
       node.timer += dt;
       if (node.timer >= node.life) {
-        burst(node.x, node.y, rgb([255, 120, 120]), 30, 200);
+        burst(node.x, node.y, `rgb(${node.look.glow})`, 40, 220);
         die("Hành tinh sụp đổ — phóng nhanh hơn!");
       }
     }
@@ -337,7 +334,7 @@ function updatePlayer(dt) {
 
   if (player.mode !== "dead") {
     player.trail.push({ x: player.x, y: player.y });
-    if (player.trail.length > 18) player.trail.shift();
+    if (player.trail.length > 26) player.trail.shift();
   }
 }
 
@@ -372,6 +369,7 @@ function updateEffects(dt) {
   const zone = zoneOf(score);
   bgTop = lerpColor(bgTop, zone.top, Math.min(1, dt * 1.5));
   bgBottom = lerpColor(bgBottom, zone.bottom, Math.min(1, dt * 1.5));
+  bgNebula = lerpColor(bgNebula, zone.nebula, Math.min(1, dt * 1.5));
 }
 
 function update(dt) {
@@ -383,6 +381,16 @@ function update(dt) {
 }
 
 // ---------- Render ----------
+const FONT = '"Baloo 2", system-ui, sans-serif';
+let vignette = null;
+
+function pill(x, y, w, h, fill) {
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, h / 2);
+  ctx.fill();
+}
+
 function drawBackground() {
   const grad = ctx.createLinearGradient(0, 0, 0, H);
   grad.addColorStop(0, rgb(bgTop));
@@ -390,220 +398,479 @@ function drawBackground() {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
 
-  // Càng lên cao càng nhiều sao
-  const starAlpha = clamp(score / 40, 0.15, 1);
-  ctx.fillStyle = `rgba(255,255,255,${starAlpha})`;
-  for (const s of stars) {
-    const y = (((s.y - camY * s.depth) % H) + H) % H;
-    ctx.fillRect(s.x, y, s.size, s.size);
+  const space = clamp(score / 20, 0, 1);
+  ctx.globalCompositeOperation = "lighter";
+
+  // tinh vân trôi chậm phía xa
+  for (const n of nebulas) {
+    const y = ((((n.y - camY * 0.06) % 1500) + 1500) % 1500) - 400;
+    const g = ctx.createRadialGradient(n.x, y, 0, n.x, y, n.r);
+    g.addColorStop(0, rgb(bgNebula, 0.08 + space * 0.2));
+    g.addColorStop(1, rgb(bgNebula, 0));
+    ctx.fillStyle = g;
+    ctx.fillRect(n.x - n.r, y - n.r, n.r * 2, n.r * 2);
+  }
+
+  // 3 lớp sao parallax, lấp lánh
+  const starAlpha = 0.12 + space * 0.88;
+  for (const layer of starLayers) {
+    for (const s of layer) {
+      const y = (((s.y - camY * s.depth) % H) + H) % H;
+      const twinkle = 0.55 + 0.45 * Math.sin(time * 2.5 + s.phase);
+      ctx.fillStyle = `rgba(255,255,255,${starAlpha * twinkle})`;
+      ctx.beginPath();
+      ctx.arc(s.x, y, s.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalCompositeOperation = "source-over";
+
+  // mây chỉ có ở tầng thấp, tan dần khi leo lên
+  const cloudAlpha = clamp(1 - score / 14, 0, 1) * 0.5;
+  if (cloudAlpha > 0) {
+    ctx.globalAlpha = cloudAlpha;
+    for (const c of clouds) {
+      const y = ((((c.y - camY * 0.35) % 1050) + 1050) % 1050) - 150;
+      drawSprite(ctx, c.sprite, c.x, y);
+    }
+    ctx.globalAlpha = 1;
   }
 }
 
-function drawMarkerLine(y, color, label) {
+function drawGround() {
+  const top = 170;
+  if (camY + H < top - 30) return;
+  const R = 1500;
   ctx.save();
-  ctx.strokeStyle = color;
-  ctx.setLineDash([8, 8]);
+  ctx.shadowColor = "rgba(140,220,255,0.9)";
+  ctx.shadowBlur = 30;
+  const g = ctx.createLinearGradient(0, top, 0, top + 260);
+  g.addColorStop(0, "#3fae84");
+  g.addColorStop(0.15, "#1d6b5a");
+  g.addColorStop(1, "#071a22");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(W / 2, top + R, R, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle = "rgba(190,240,255,0.8)";
   ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(W / 2, top + R, R, Math.PI * 1.4, Math.PI * 1.6);
+  ctx.stroke();
+}
+
+function drawMarkerLine(y, color, label, strong) {
+  ctx.save();
+  const g = ctx.createLinearGradient(0, 0, W, 0);
+  g.addColorStop(0, "rgba(0,0,0,0)");
+  g.addColorStop(0.5, color);
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.strokeStyle = g;
+  ctx.lineWidth = strong ? 2.5 : 1.5;
+  if (strong) {
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 12;
+  }
+  ctx.setLineDash(strong ? [] : [6, 8]);
   ctx.beginPath();
   ctx.moveTo(0, y);
   ctx.lineTo(W, y);
   ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle = color;
-  ctx.font = "bold 13px system-ui, sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText(label, 10, y - 8);
   ctx.restore();
+
+  ctx.font = `700 12px ${FONT}`;
+  const w = ctx.measureText(label).width + 20;
+  pill(W / 2 - w / 2, y - 11, w, 22, strong ? color : "rgba(10,12,30,0.65)");
+  ctx.fillStyle = strong ? "#2a1a00" : "rgba(255,255,255,0.8)";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, W / 2, y + 1);
+  ctx.textBaseline = "alphabetic";
 }
 
 function drawMarkers() {
   // Mốc zone phía trước: cho người chơi thấy "đích" kế tiếp
   for (let i = ZONE_SIZE; i < nodes.length; i += ZONE_SIZE) {
     if (i <= score) continue;
-    drawMarkerLine(nodes[i].y + 60, "rgba(255,255,255,0.25)", `▲ ${zoneOf(i).name}`);
+    drawMarkerLine(nodes[i].y + 70, "rgba(255,255,255,0.35)", `ZONE ${i / ZONE_SIZE + 1} · ${zoneOf(i).name}`, false);
   }
   // Vạch kỷ lục — mục tiêu cần chinh phục
   if (best > 0 && nodes[best] && !newRecord) {
-    drawMarkerLine(nodes[best].y + 40, "#ffd23f", `KỶ LỤC ${best}`);
+    drawMarkerLine(nodes[best].y + 50, "#ffd23f", `★ KỶ LỤC ${best}`, true);
   }
+}
+
+function drawCaptureField(node, isTarget, index) {
+  const glow = node.look.glow;
+  const pulse = isTarget ? 0.5 + 0.5 * Math.sin(time * 5) : 0;
+  const g = ctx.createRadialGradient(node.x, node.y, node.R, node.x, node.y, node.capture);
+  g.addColorStop(0, `rgba(${glow},0)`);
+  g.addColorStop(0.7, `rgba(${glow},0.05)`);
+  g.addColorStop(1, `rgba(${glow},${0.14 + pulse * 0.1})`);
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(node.x, node.y, node.capture, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = `rgba(${glow},${isTarget ? 0.85 : 0.4})`;
+  ctx.lineWidth = isTarget ? 2 : 1.5;
+  ctx.setLineDash([3, 7]);
+  ctx.lineDashOffset = time * 14 * (index % 2 === 0 ? 1 : -1);
+  ctx.beginPath();
+  ctx.arc(node.x, node.y, node.capture, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawMotionStreak(node) {
+  const back = node.vx > 0 ? -1 : 1;
+  ctx.strokeStyle = `rgba(${node.look.glow},0.5)`;
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  for (let k = -1; k <= 1; k++) {
+    const sx = node.x + back * (node.R + 8);
+    const sy = node.y + k * node.R * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + back * (14 - Math.abs(k) * 5), sy);
+    ctx.stroke();
+  }
+  ctx.lineCap = "butt";
+}
+
+function drawTimer(node, x, y, danger) {
+  const r = node.R + ORBIT_GAP + 9;
+  const start = -Math.PI / 2;
+  const left = 1 - danger;
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.stroke();
+
+  const color = danger > 0.65 ? "#ff4d6d" : "#ffffff";
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 10;
+  ctx.lineWidth = 3.5;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.arc(x, y, r, start, start + left * Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawNodes() {
   nodes.forEach((node, i) => {
-    if (node.y - camY > H + 80 || node.y - camY < -80) return;
+    if (node.y - camY > H + 120 || node.y - camY < -120) return;
     const visited = i < player.node;
     const current = i === player.node;
+    const ticking = current && state === "play" && player.mode === "orbit";
+    const danger = ticking ? node.timer / node.life : 0;
 
-    if (!visited) {
-      ctx.strokeStyle = "rgba(255,255,255,0.18)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, node.capture, 0, Math.PI * 2);
-      ctx.stroke();
+    let x = node.x;
+    let y = node.y;
+    if (danger > 0.65) {
+      const k = (danger - 0.65) * 8;
+      x += (Math.random() - 0.5) * k;
+      y += (Math.random() - 0.5) * k;
     }
 
-    const color = node.vx !== 0 ? `hsl(${node.hue},70%,62%)` : `hsl(${node.hue},55%,58%)`;
-    ctx.fillStyle = visited ? "rgba(255,255,255,0.12)" : color;
-    ctx.beginPath();
-    ctx.arc(node.x, node.y, node.R, 0, Math.PI * 2);
-    ctx.fill();
+    if (!visited) drawCaptureField(node, i === player.node + 1, i);
+    if (!visited && node.vx !== 0) drawMotionStreak(node);
 
-    if (node.vx !== 0 && !visited) {
-      ctx.strokeStyle = "rgba(255,255,255,0.5)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, node.R + 4, 0, Math.PI * 2);
-      ctx.stroke();
-    }
+    ctx.globalAlpha = visited ? 0.3 : 1;
+    drawSprite(ctx, node.sprite, x, y);
+    ctx.globalAlpha = 1;
 
-    if (current && state === "play" && player.mode === "orbit") {
-      const left = 1 - node.timer / node.life;
-      ctx.strokeStyle = left < 0.35 ? "#ff5c7a" : "#ffffff";
-      ctx.lineWidth = 4;
+    if (danger > 0.65) {
+      ctx.fillStyle = `rgba(255,50,80,${(danger - 0.65) * 1.4})`;
       ctx.beginPath();
-      ctx.arc(node.x, node.y, node.R + ORBIT_GAP + 10, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2);
-      ctx.stroke();
+      ctx.arc(x, y, node.R, 0, Math.PI * 2);
+      ctx.fill();
     }
+    if (ticking) drawTimer(node, x, y, danger);
   });
+}
+
+function cometColor() {
+  if (combo >= 3) return "255,205,90";
+  return "130,225,255";
 }
 
 function drawPlayer() {
-  player.trail.forEach((t, i) => {
-    const a = i / player.trail.length;
-    ctx.fillStyle = `rgba(255,255,255,${a * 0.5})`;
+  const color = cometColor();
+  const trail = player.trail;
+
+  ctx.globalCompositeOperation = "lighter";
+  ctx.lineCap = "round";
+  for (let i = 1; i < trail.length; i++) {
+    const t = i / trail.length;
+    ctx.strokeStyle = `rgba(${color},${t * 0.55})`;
+    ctx.lineWidth = t * 10;
     ctx.beginPath();
-    ctx.arc(t.x, t.y, 2 + a * 4, 0, Math.PI * 2);
-    ctx.fill();
-  });
+    ctx.moveTo(trail[i - 1].x, trail[i - 1].y);
+    ctx.lineTo(trail[i].x, trail[i].y);
+    ctx.stroke();
+  }
+  ctx.lineCap = "butt";
 
-  if (player.mode === "dead") return;
+  if (player.mode === "dead") {
+    ctx.globalCompositeOperation = "source-over";
+    return;
+  }
 
-  // Đường ngắm mờ khi đang quay, giúp người mới hiểu hướng phóng
+  // Chấm ngắm mờ khi đang quay, giúp người mới hiểu hướng phóng
   if (player.mode === "orbit" && score < 5) {
     const dx = -Math.sin(player.angle) * player.dir;
     const dy = Math.cos(player.angle) * player.dir;
-    ctx.strokeStyle = "rgba(255,255,255,0.25)";
-    ctx.setLineDash([4, 6]);
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(player.x, player.y);
-    ctx.lineTo(player.x + dx * 140, player.y + dy * 140);
-    ctx.stroke();
-    ctx.setLineDash([]);
+    for (let k = 1; k <= 9; k++) {
+      ctx.fillStyle = `rgba(255,255,255,${0.45 - k * 0.045})`;
+      ctx.beginPath();
+      ctx.arc(player.x + dx * k * 16, player.y + dy * k * 16, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
-  ctx.shadowColor = "#ffffff";
-  ctx.shadowBlur = 16;
+  const glow = ctx.createRadialGradient(player.x, player.y, 0, player.x, player.y, 22);
+  glow.addColorStop(0, "rgba(255,255,255,1)");
+  glow.addColorStop(0.25, `rgba(${color},0.7)`);
+  glow.addColorStop(1, `rgba(${color},0)`);
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, 22, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalCompositeOperation = "source-over";
+
   ctx.fillStyle = "#ffffff";
   ctx.beginPath();
-  ctx.arc(player.x, player.y, 7, 0, Math.PI * 2);
+  ctx.arc(player.x, player.y, 5, 0, Math.PI * 2);
   ctx.fill();
-  ctx.shadowBlur = 0;
 }
 
 function drawEffects() {
+  ctx.globalCompositeOperation = "lighter";
   for (const p of particles) {
     ctx.globalAlpha = Math.max(0, p.life);
     ctx.fillStyle = p.color;
-    ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 0.8 + p.life * 2.5, 0, Math.PI * 2);
+    ctx.fill();
   }
+  ctx.globalCompositeOperation = "source-over";
   ctx.globalAlpha = 1;
 
   ctx.textAlign = "center";
+  ctx.lineJoin = "round";
   for (const p of popups) {
-    ctx.globalAlpha = Math.max(0, p.life);
+    const age = 1 - p.life;
+    const scale = 1 + Math.max(0, 0.4 - age * 3);
+    ctx.save();
+    ctx.globalAlpha = clamp(p.life * 1.5, 0, 1);
+    ctx.translate(p.x, p.y);
+    ctx.scale(scale, scale);
+    ctx.font = `800 ${p.size}px ${FONT}`;
+    ctx.strokeStyle = "rgba(10,10,30,0.55)";
+    ctx.lineWidth = 5;
+    ctx.strokeText(p.text, 0, 0);
     ctx.fillStyle = p.color;
-    ctx.font = `900 ${p.size}px system-ui, sans-serif`;
-    ctx.fillText(p.text, p.x, p.y);
+    ctx.fillText(p.text, 0, 0);
+    ctx.restore();
   }
-  ctx.globalAlpha = 1;
+}
+
+function drawVignette() {
+  if (!vignette) {
+    vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.75);
+    vignette.addColorStop(0, "rgba(0,0,0,0)");
+    vignette.addColorStop(1, "rgba(0,0,10,0.5)");
+  }
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, W, H);
 }
 
 function drawHud() {
   ctx.textAlign = "center";
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.4)";
+  ctx.shadowBlur = 14;
+  ctx.shadowOffsetY = 3;
   ctx.fillStyle = "#ffffff";
-  ctx.font = "900 56px system-ui, sans-serif";
-  ctx.fillText(String(score), W / 2, 78);
+  ctx.font = `800 64px ${FONT}`;
+  ctx.fillText(String(score), W / 2, 82);
+  ctx.restore();
 
-  // Thanh tiến độ tới zone kế tiếp
+  // Thanh tiến độ tới zone kế tiếp, tên zone nằm trong thanh
+  const bw = 180;
+  const bx = W / 2 - bw / 2;
+  const by = 96;
   const progress = (score % ZONE_SIZE) / ZONE_SIZE;
-  ctx.fillStyle = "rgba(255,255,255,0.15)";
-  ctx.fillRect(W / 2 - 80, 96, 160, 6);
-  ctx.fillStyle = "#7cf7c8";
-  ctx.fillRect(W / 2 - 80, 96, 160 * progress, 6);
-  ctx.font = "600 13px system-ui, sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.75)";
-  ctx.fillText(zoneOf(score).name, W / 2, 122);
+  pill(bx, by, bw, 24, "rgba(5,8,25,0.45)");
+  if (progress > 0) {
+    const fill = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+    fill.addColorStop(0, "rgba(90,240,200,0.55)");
+    fill.addColorStop(1, "rgba(120,170,255,0.55)");
+    pill(bx, by, Math.max(24, bw * progress), 24, fill);
+  }
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `700 13px ${FONT}`;
+  ctx.textBaseline = "middle";
+  ctx.fillText(zoneOf(score).name, W / 2, by + 13);
 
-  ctx.textAlign = "right";
-  ctx.font = "700 14px system-ui, sans-serif";
+  // Best
+  ctx.font = `800 14px ${FONT}`;
+  const bestText = `★ ${Math.max(best, score)}`;
+  const tw = ctx.measureText(bestText).width + 22;
+  pill(W - tw - 12, 14, tw, 26, "rgba(5,8,25,0.45)");
   ctx.fillStyle = "#ffd23f";
-  ctx.fillText(`BEST ${Math.max(best, score)}`, W - 14, 28);
+  ctx.fillText(bestText, W - 12 - tw / 2, 28);
+
+  if (combo >= 2) {
+    ctx.font = `800 15px ${FONT}`;
+    ctx.fillStyle = "#ffd23f";
+    ctx.fillText(`COMBO x${combo}`, W / 2, by + 42);
+  }
+  ctx.textBaseline = "alphabetic";
 
   if (banner) {
-    ctx.globalAlpha = clamp(banner.life, 0, 1);
-    ctx.textAlign = "center";
-    ctx.fillStyle = "rgba(0,0,0,0.35)";
-    ctx.fillRect(0, H * 0.42 - 40, W, 70);
+    const a = clamp(banner.life, 0, 1);
+    const cy = H * 0.4;
+    ctx.globalAlpha = a;
+    const band = ctx.createLinearGradient(0, 0, W, 0);
+    band.addColorStop(0, "rgba(5,8,25,0)");
+    band.addColorStop(0.5, "rgba(5,8,25,0.6)");
+    band.addColorStop(1, "rgba(5,8,25,0)");
+    ctx.fillStyle = band;
+    ctx.fillRect(0, cy - 46, W, 82);
+    ctx.fillStyle = "#7cf7c8";
+    ctx.font = `700 14px ${FONT}`;
+    ctx.fillText(`ZONE ${Math.floor(score / ZONE_SIZE) + 1} ĐÃ MỞ KHÓA`, W / 2, cy - 18);
+    ctx.save();
+    ctx.shadowColor = "rgba(124,247,200,0.8)";
+    ctx.shadowBlur = 18;
     ctx.fillStyle = "#ffffff";
-    ctx.font = "600 14px system-ui, sans-serif";
-    ctx.fillText(`ZONE ${Math.floor(score / ZONE_SIZE) + 1}`, W / 2, H * 0.42 - 14);
-    ctx.font = "900 28px system-ui, sans-serif";
-    ctx.fillText(banner.text, W / 2, H * 0.42 + 18);
+    ctx.font = `800 34px ${FONT}`;
+    ctx.fillText(banner.text, W / 2, cy + 20);
+    ctx.restore();
     ctx.globalAlpha = 1;
   }
 }
 
-function drawReadyScreen() {
-  ctx.textAlign = "center";
+function drawTitle(text, y, size) {
+  ctx.save();
+  const g = ctx.createLinearGradient(0, y - size, 0, y);
+  g.addColorStop(0, "#ffffff");
+  g.addColorStop(1, "#9fe8ff");
+  ctx.shadowColor = "rgba(120,220,255,0.9)";
+  ctx.shadowBlur = 24;
+  ctx.fillStyle = g;
+  ctx.font = `800 ${size}px ${FONT}`;
+  ctx.fillText(text, W / 2, y);
+  ctx.restore();
+}
+
+function drawTapHint(text, y) {
+  const a = 0.6 + 0.4 * Math.sin(time * 4);
+  ctx.font = `800 15px ${FONT}`;
+  const w = ctx.measureText(text).width + 44;
+  ctx.globalAlpha = a;
+  pill(W / 2 - w / 2, y - 22, w, 44, "rgba(255,255,255,0.14)");
+  ctx.strokeStyle = "rgba(255,255,255,0.6)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(W / 2 - w / 2, y - 22, w, 44, 22);
+  ctx.stroke();
   ctx.fillStyle = "#ffffff";
-  ctx.font = "900 44px system-ui, sans-serif";
-  ctx.fillText("ORBIT CLIMB", W / 2, H * 0.22);
-  ctx.font = "500 16px system-ui, sans-serif";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, W / 2, y + 1);
+  ctx.textBaseline = "alphabetic";
+  ctx.globalAlpha = 1;
+}
+
+function drawReadyScreen() {
+  const shade = ctx.createLinearGradient(0, 0, 0, H * 0.5);
+  shade.addColorStop(0, "rgba(5,8,25,0.55)");
+  shade.addColorStop(1, "rgba(5,8,25,0)");
+  ctx.fillStyle = shade;
+  ctx.fillRect(0, 0, W, H * 0.5);
+
+  ctx.textAlign = "center";
+  drawTitle("ORBIT", H * 0.14, 68);
+  drawTitle("CLIMB", H * 0.14 + 60, 68);
+
+  ctx.font = `600 15px ${FONT}`;
   ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.fillText("Chạm / Space để phóng", W / 2, H * 0.22 + 40);
-  ctx.fillText("Bay vào vòng hút của hành tinh phía trên", W / 2, H * 0.22 + 64);
-  ctx.fillText("Nhắm trúng tâm = PERFECT", W / 2, H * 0.22 + 88);
+  ctx.fillText("Phóng khỏi quỹ đạo, lọt vào vùng hút kế tiếp", W / 2, H * 0.14 + 100);
+  ctx.fillText("Nhắm trúng tâm để ăn PERFECT", W / 2, H * 0.14 + 122);
+
+  if (best > 0) {
+    ctx.font = `800 16px ${FONT}`;
+    ctx.fillStyle = "#ffd23f";
+    ctx.fillText(`★ Kỷ lục: ${best}`, W / 2, H * 0.14 + 156);
+  }
+  drawTapHint("CHẠM ĐỂ PHÓNG", H * 0.9);
+}
+
+function drawStat(label, value, cx, y) {
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.font = `700 11px ${FONT}`;
+  ctx.fillText(label, cx, y);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `800 17px ${FONT}`;
+  ctx.fillText(value, cx, y + 22);
 }
 
 function drawOverScreen() {
-  ctx.fillStyle = "rgba(5,6,15,0.7)";
+  ctx.fillStyle = "rgba(5,6,20,0.65)";
   ctx.fillRect(0, 0, W, H);
   ctx.textAlign = "center";
 
+  const cx = 30;
+  const cy = H * 0.2;
+  const cw = W - 60;
+  const ch = 330;
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.5)";
+  ctx.shadowBlur = 30;
+  ctx.fillStyle = "rgba(22,24,52,0.94)";
+  ctx.beginPath();
+  ctx.roundRect(cx, cy, cw, ch, 24);
+  ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(cx, cy, cw, ch, 24);
+  ctx.stroke();
+
   ctx.fillStyle = "#ff8fa3";
-  ctx.font = "600 16px system-ui, sans-serif";
-  ctx.fillText(deathReason, W / 2, H * 0.28);
+  ctx.font = `700 15px ${FONT}`;
+  ctx.fillText(deathReason, W / 2, cy + 40);
 
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "900 88px system-ui, sans-serif";
-  ctx.fillText(String(score), W / 2, H * 0.42);
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.font = `700 12px ${FONT}`;
+  ctx.fillText("ĐỘ CAO CHINH PHỤC", W / 2, cy + 78);
+  drawTitle(String(score), cy + 160, 92);
 
-  ctx.font = "600 16px system-ui, sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.8)";
-  ctx.fillText(`Đã tới: ${zoneOf(score).name}`, W / 2, H * 0.48);
-  ctx.fillText(`Combo PERFECT cao nhất: ${maxCombo}`, W / 2, H * 0.48 + 26);
+  ctx.fillStyle = "rgba(255,255,255,0.08)";
+  ctx.fillRect(cx + 24, cy + 190, cw - 48, 1);
+  drawStat("ZONE", zoneOf(score).name, W / 2 - 75, cy + 222);
+  drawStat("COMBO MAX", `x${maxCombo}`, W / 2 + 75, cy + 222);
 
-  if (beatBest) {
-    ctx.fillStyle = "#ffd23f";
-    ctx.font = "900 24px system-ui, sans-serif";
-    ctx.fillText("★ KỶ LỤC MỚI ★", W / 2, H * 0.6);
-  } else if (best === score) {
-    ctx.fillStyle = "#ffd23f";
-    ctx.font = "700 18px system-ui, sans-serif";
-    ctx.fillText(`Bằng kỷ lục ${best} — thêm 1 nữa thôi!`, W / 2, H * 0.6);
-  } else {
-    ctx.fillStyle = "#ffd23f";
-    ctx.font = "700 18px system-ui, sans-serif";
-    ctx.fillText(`Kỷ lục ${best} — chỉ còn ${best - score} nữa thôi!`, W / 2, H * 0.6);
-  }
+  let recordText = `Kỷ lục ${best}, chỉ còn ${best - score} nữa thôi!`;
+  if (beatBest) recordText = "★ KỶ LỤC MỚI ★";
+  if (!beatBest && best === score) recordText = `Bằng kỷ lục ${best}, thêm 1 nữa thôi!`;
+  const recordW = Math.min(cw - 30, ctx.measureText(recordText).width + 60);
+  ctx.font = `800 15px ${FONT}`;
+  pill(W / 2 - recordW / 2, cy + 272, recordW, 34, beatBest ? "#ffd23f" : "rgba(255,210,63,0.14)");
+  ctx.fillStyle = beatBest ? "#2a1a00" : "#ffd23f";
+  ctx.textBaseline = "middle";
+  ctx.fillText(recordText, W / 2, cy + 290);
+  ctx.textBaseline = "alphabetic";
 
-  const blink = Math.floor(performance.now() / 500) % 2 === 0;
-  if (blink) {
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "600 16px system-ui, sans-serif";
-    ctx.fillText("Chạm để thử lại", W / 2, H * 0.72);
-  }
+  drawTapHint("CHẠM ĐỂ CHƠI LẠI", cy + ch + 60);
 }
 
 function render() {
@@ -615,15 +882,21 @@ function render() {
 
   ctx.save();
   ctx.translate(0, -camY);
+  drawGround();
   drawMarkers();
   drawNodes();
   drawPlayer();
   drawEffects();
   ctx.restore();
 
+  drawVignette();
   if (state !== "ready") drawHud();
   ctx.restore();
 
+  if (shake > 0) {
+    ctx.fillStyle = `rgba(255,80,110,${(shake / 14) * 0.25})`;
+    ctx.fillRect(0, 0, W, H);
+  }
   if (state === "ready") drawReadyScreen();
   if (state === "over") drawOverScreen();
 }
@@ -631,7 +904,8 @@ function render() {
 // ---------- Setup ----------
 function resize() {
   const scale = Math.min(window.innerWidth / W, window.innerHeight / H);
-  const dpr = window.devicePixelRatio || 1;
+  // DPR 3 tốn gấp ~2.25 lần pixel so với 2 mà mắt gần như không phân biệt được
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
   canvas.style.width = `${W * scale}px`;
   canvas.style.height = `${H * scale}px`;
   canvas.width = Math.round(W * scale * dpr);
@@ -644,6 +918,7 @@ let lastTime = performance.now();
 function loop(now) {
   const dt = Math.min(0.033, (now - lastTime) / 1000);
   lastTime = now;
+  time += dt;
   update(dt);
   render();
   requestAnimationFrame(loop);
