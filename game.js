@@ -903,7 +903,8 @@ function render() {
 
 // ---------- Setup ----------
 function resize() {
-  const scale = Math.min(window.innerWidth / W, window.innerHeight / H);
+  // đo theo body để chừa vùng tai thỏ / thanh home trên điện thoại
+  const scale = Math.min(document.body.clientWidth / W, document.body.clientHeight / H);
   // DPR 3 tốn gấp ~2.25 lần pixel so với 2 mà mắt gần như không phân biệt được
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   canvas.style.width = `${W * scale}px`;
