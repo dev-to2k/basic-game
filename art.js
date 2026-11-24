@@ -1,20 +1,28 @@
-// ART — tạo sprite & các lớp nền. Vẽ 1 lần vào offscreen canvas rồi tái sử dụng mỗi frame.
+// ART — phong cách tranh in retro: mực phẳng, bóng halftone, hạt giấy, lệch mực.
+// Sprite vẽ 1 lần vào offscreen canvas rồi tái sử dụng mỗi frame.
 
 const SPRITE_SCALE = 2; // vẽ sprite ở 2x để sắc nét trên màn retina
 
-const PLANET_LOOKS = [
-  { light: "#ffd6a0", mid: "#e8894a", dark: "#5a1f1a", glow: "255,170,100", kind: "gas" },
-  { light: "#b8f3ff", mid: "#3fa7d6", dark: "#0b2a5a", glow: "110,200,255", kind: "ocean" },
-  { light: "#e6d4ff", mid: "#8e6bd6", dark: "#2a1650", glow: "180,140,255", kind: "gas" },
-  { light: "#d8ffcf", mid: "#56b870", dark: "#123a2a", glow: "130,240,160", kind: "ocean" },
-  { light: "#f2eee8", mid: "#a99f94", dark: "#3a3430", glow: "230,220,210", kind: "rock" },
-  { light: "#ffc3d0", mid: "#e0567a", dark: "#4a1030", glow: "255,120,160", kind: "rock" },
-  { light: "#fff3b0", mid: "#e0b440", dark: "#5a3a10", glow: "255,220,120", kind: "gas" },
-];
+// Bảng mực cố định — mọi thứ trong game chỉ dùng các màu này
+const PAPER = "#f6ecd6";
+const INK = "#1b2340";
+const CORAL = "#f26b4a";
+const MUSTARD = "#f2b632";
+const TEAL = "#57b8a5";
+const PINK = "#e58fa3";
 
-function randomPlanetLook() {
-  const look = PLANET_LOOKS[Math.floor(Math.random() * PLANET_LOOKS.length)];
-  return { ...look, ringed: look.kind === "gas" && Math.random() < 0.45, tilt: (Math.random() - 0.5) * 0.6 };
+const MISPRINT = 1.5; // độ lệch giữa lớp màu và lớp bóng (px)
+const PLANET_KINDS = ["bands", "craters", "plain"];
+
+function pick(list) {
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function randomPlanetLook(palette) {
+  const fill = pick(palette);
+  const detail = pick(palette.filter((c) => c !== fill));
+  const kind = pick(PLANET_KINDS);
+  return { fill, detail, kind, ringed: kind !== "craters" && Math.random() < 0.35, tilt: -0.25 - Math.random() * 0.3 };
 }
 
 function makeCanvas(size) {
@@ -26,111 +34,90 @@ function makeCanvas(size) {
   return { canvas: c, g };
 }
 
+// Lưới chấm so le 45° — chấm to dần theo hướng khuất sáng (trên-trái -> dưới-phải)
+function drawHalftoneShade(g, R, color) {
+  const step = Math.max(3, R * 0.22);
+  g.fillStyle = color;
+  g.beginPath();
+  let row = 0;
+  for (let y = -R; y <= R; y += step * 0.5) {
+    const shift = row % 2 === 0 ? 0 : step * 0.5;
+    for (let x = -R + shift; x <= R; x += step) {
+      const depth = (x + y) / (R * 1.41); // -1 (sáng) .. 1 (tối)
+      const r = Math.min(1, Math.max(0, (depth + 0.15) / 0.9)) * step * 0.48;
+      if (r < 0.35) continue;
+      g.moveTo(x + r, y);
+      g.arc(x, y, r, 0, Math.PI * 2);
+    }
+    row++;
+  }
+  g.fill();
+}
+
 function drawRing(g, R, look, front) {
   g.save();
   g.rotate(look.tilt);
-  g.lineWidth = R * 0.22;
-  g.strokeStyle = `rgba(${look.glow},0.55)`;
+  g.strokeStyle = look.detail;
+  g.lineWidth = Math.max(2.5, R * 0.16);
   g.beginPath();
-  if (front) g.ellipse(0, 0, R * 1.75, R * 0.45, 0, 0, Math.PI);
-  else g.ellipse(0, 0, R * 1.75, R * 0.45, 0, Math.PI, Math.PI * 2);
-  g.stroke();
-  g.lineWidth = 1;
-  g.strokeStyle = "rgba(255,255,255,0.35)";
-  g.beginPath();
-  if (front) g.ellipse(0, 0, R * 1.95, R * 0.52, 0, 0, Math.PI);
-  else g.ellipse(0, 0, R * 1.95, R * 0.52, 0, Math.PI, Math.PI * 2);
+  if (front) g.ellipse(0, 0, R * 1.7, R * 0.42, 0, 0, Math.PI);
+  else g.ellipse(0, 0, R * 1.7, R * 0.42, 0, Math.PI, Math.PI * 2);
   g.stroke();
   g.restore();
 }
 
 function drawSurface(g, R, look) {
-  if (look.kind === "gas") {
-    // vân khí quyển ngang kiểu hành tinh khí
-    for (let i = -4; i <= 4; i++) {
-      g.fillStyle = i % 2 === 0 ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)";
-      const y = (i / 4) * R;
+  g.fillStyle = look.detail;
+  if (look.kind === "bands") {
+    g.save();
+    g.rotate(look.tilt * 0.5);
+    g.fillRect(-R, -R * 0.55, R * 2, R * 0.2);
+    g.fillRect(-R, -R * 0.1, R * 2, R * 0.34);
+    g.fillRect(-R, R * 0.5, R * 2, R * 0.12);
+    g.restore();
+  } else if (look.kind === "craters") {
+    for (let i = 0; i < 5; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const d = Math.random() * R * 0.65;
       g.beginPath();
-      g.ellipse(0, y + Math.sin(i * 1.7) * 2, R * 1.2, R * (0.08 + Math.random() * 0.06), 0, 0, Math.PI * 2);
+      g.arc(Math.cos(a) * d, Math.sin(a) * d, R * (0.1 + Math.random() * 0.14), 0, Math.PI * 2);
       g.fill();
-    }
-  } else if (look.kind === "ocean") {
-    // lục địa / mây trôi
-    for (let i = 0; i < 6; i++) {
-      g.fillStyle = i < 3 ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.16)";
-      g.beginPath();
-      g.ellipse(
-        (Math.random() - 0.5) * R * 1.4,
-        (Math.random() - 0.5) * R * 1.4,
-        R * (0.2 + Math.random() * 0.35),
-        R * (0.08 + Math.random() * 0.12),
-        Math.random() * Math.PI,
-        0,
-        Math.PI * 2,
-      );
-      g.fill();
-    }
-  } else {
-    // miệng núi lửa
-    for (let i = 0; i < 7; i++) {
-      const cx = (Math.random() - 0.5) * R * 1.4;
-      const cy = (Math.random() - 0.5) * R * 1.4;
-      const cr = R * (0.08 + Math.random() * 0.18);
-      g.fillStyle = "rgba(0,0,0,0.22)";
-      g.beginPath();
-      g.arc(cx, cy, cr, 0, Math.PI * 2);
-      g.fill();
-      g.strokeStyle = "rgba(255,255,255,0.18)";
-      g.lineWidth = 1;
-      g.beginPath();
-      g.arc(cx + 0.6, cy + 0.6, cr, Math.PI * 0.9, Math.PI * 1.9);
-      g.stroke();
     }
   }
 }
 
 function createPlanetSprite(R, look) {
-  const half = Math.ceil(R * 2.1 + 14);
+  const half = Math.ceil(R * 1.9 + 8);
   const { canvas: c, g } = makeCanvas(half * 2);
   g.translate(half, half);
 
-  // quầng khí quyển
-  const halo = g.createRadialGradient(0, 0, R * 0.9, 0, 0, R + 14);
-  halo.addColorStop(0, `rgba(${look.glow},0.45)`);
-  halo.addColorStop(1, `rgba(${look.glow},0)`);
-  g.fillStyle = halo;
-  g.beginPath();
-  g.arc(0, 0, R + 14, 0, Math.PI * 2);
-  g.fill();
-
   if (look.ringed) drawRing(g, R, look, false);
 
-  // thân hành tinh — nguồn sáng ở góc trên trái
-  const body = g.createRadialGradient(-R * 0.4, -R * 0.45, R * 0.1, 0, 0, R);
-  body.addColorStop(0, look.light);
-  body.addColorStop(0.55, look.mid);
-  body.addColorStop(1, look.dark);
-  g.fillStyle = body;
+  // lớp màu: in lệch nhẹ so với lớp bóng
+  g.save();
+  g.translate(-MISPRINT, -MISPRINT);
+  g.fillStyle = look.fill;
   g.beginPath();
   g.arc(0, 0, R, 0, Math.PI * 2);
   g.fill();
-
-  g.save();
   g.clip();
   drawSurface(g, R, look);
-  // vùng tối (terminator)
-  const shade = g.createLinearGradient(-R, -R, R, R);
-  shade.addColorStop(0.45, "rgba(0,0,0,0)");
-  shade.addColorStop(1, "rgba(0,0,10,0.55)");
-  g.fillStyle = shade;
-  g.fillRect(-R, -R, R * 2, R * 2);
   g.restore();
 
-  // viền sáng
-  g.strokeStyle = `rgba(${look.glow},0.7)`;
-  g.lineWidth = 1.2;
+  // lớp bóng halftone bằng mực tối
+  g.save();
   g.beginPath();
-  g.arc(0, 0, R - 0.5, Math.PI * 1.05, Math.PI * 1.7);
+  g.arc(0, 0, R, 0, Math.PI * 2);
+  g.clip();
+  drawHalftoneShade(g, R, INK);
+  g.restore();
+
+  // vệt sáng phẳng
+  g.strokeStyle = PAPER;
+  g.lineWidth = Math.max(1.5, R * 0.1);
+  g.lineCap = "round";
+  g.beginPath();
+  g.arc(-MISPRINT, -MISPRINT, R * 0.68, Math.PI * 1.12, Math.PI * 1.42);
   g.stroke();
 
   if (look.ringed) drawRing(g, R, look, true);
@@ -142,43 +129,67 @@ function drawSprite(ctx, sprite, x, y) {
   ctx.drawImage(sprite.canvas, x - sprite.half, y - sprite.half, sprite.half * 2, sprite.half * 2);
 }
 
-// ---------- Nền ----------
-const nebulas = Array.from({ length: 5 }, (_, i) => ({
-  x: Math.random() * 400,
-  y: i * 300 + Math.random() * 120,
-  r: 160 + Math.random() * 140,
-}));
+// Ngôi sao 4 cánh kiểu poster
+function starPath(g, x, y, r) {
+  const w = r * 0.28;
+  g.moveTo(x, y - r);
+  g.quadraticCurveTo(x + w, y - w, x + r, y);
+  g.quadraticCurveTo(x + w, y + w, x, y + r);
+  g.quadraticCurveTo(x - w, y + w, x - r, y);
+  g.quadraticCurveTo(x - w, y - w, x, y - r);
+}
 
+// Mây phẳng đáy bằng
 function createCloudSprite() {
-  const half = 110;
+  const half = 80;
   const { canvas: c, g } = makeCanvas(half * 2);
   g.translate(half, half);
-  // nhiều cụm gradient mềm chồng lên nhau => mây không bị viền cứng
-  for (let i = 0; i < 9; i++) {
-    const x = (Math.random() - 0.5) * 120;
-    const y = (Math.random() - 0.5) * 22 + Math.abs(x) * 0.12;
-    const r = 30 + Math.random() * 28;
-    const puff = g.createRadialGradient(x, y, 0, x, y, r);
-    puff.addColorStop(0, "rgba(255,255,255,0.35)");
-    puff.addColorStop(1, "rgba(255,255,255,0)");
-    g.fillStyle = puff;
-    g.fillRect(x - r, y - r, r * 2, r * 2);
-  }
+  const w = 46 + Math.random() * 20;
+  g.fillStyle = PAPER;
+  g.beginPath();
+  g.arc(-w * 0.55, 0, 13, 0, Math.PI * 2);
+  g.arc(-w * 0.1, -9, 19, 0, Math.PI * 2);
+  g.arc(w * 0.45, -2, 15, 0, Math.PI * 2);
+  g.rect(-w * 0.55, 0, w, 13);
+  g.arc(-w * 0.55, 6.5, 6.5, 0, Math.PI * 2);
+  g.arc(w * 0.45, 6.5, 6.5, 0, Math.PI * 2);
+  g.fill();
   return { canvas: c, half };
 }
 
-const clouds = Array.from({ length: 7 }, (_, i) => ({
+// Hạt giấy: nhiễu tĩnh phủ lên toàn màn hình
+function createGrain(w, h) {
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const g = c.getContext("2d");
+  const img = g.createImageData(w, h);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const light = Math.random() < 0.5;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = light ? 255 : 0;
+    img.data[i + 3] = Math.random() * 20;
+  }
+  g.putImageData(img, 0, 0);
+  return c;
+}
+
+// ---------- Nền ----------
+const clouds = Array.from({ length: 6 }, (_, i) => ({
   x: Math.random() * 400,
-  y: i * 150 + Math.random() * 60,
+  y: i * 175 + Math.random() * 70,
   sprite: createCloudSprite(),
 }));
 
 const starLayers = [0.04, 0.1, 0.2].map((depth, layer) =>
-  Array.from({ length: 45 - layer * 10 }, () => ({
+  Array.from({ length: 34 - layer * 10 }, () => ({
     x: Math.random() * 400,
     y: Math.random() * 700,
-    size: 0.6 + layer * 0.6 + Math.random() * 0.6,
+    size: 1 + layer * 1.6 + Math.random() * 1.2,
     phase: Math.random() * Math.PI * 2,
+    sparkle: layer > 0 && Math.random() < 0.6,
+    order: Math.random(), // sao có order nhỏ hiện trước khi lên cao
     depth,
   })),
 );
+
+const grain = createGrain(400, 700);

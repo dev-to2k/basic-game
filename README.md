@@ -28,7 +28,7 @@ Mở `index.html` bằng trình duyệt (hoặc `npx serve .`).
 
 - `game.js`: logic game (state, vật lý, input) và phần render mỗi frame.
 - `i18n.js`: chữ hiển thị bằng tiếng Anh và tiếng Việt. Game tự nhận diện ngôn ngữ trình duyệt, người chơi đổi được bằng nút EN | VI ở màn hình bắt đầu.
-- `art.js`: tạo sprite hành tinh, mây, sao và tinh vân. Mỗi sprite vẽ một lần vào offscreen canvas rồi dùng lại ở mọi frame, nên game giữ được 60 FPS.
+- `art.js`: phong cách tranh in retro. Bảng 6 màu mực cố định, hành tinh đổ bóng bằng chấm halftone, hạt giấy, lớp màu in lệch nhẹ. Mỗi sprite vẽ một lần vào offscreen canvas rồi dùng lại ở mọi frame.
 
 ## Đóng gói để phát hành
 

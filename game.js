@@ -11,18 +11,19 @@ const ORBIT_GAP = 16;
 const ZONE_SIZE = 10;
 const BEST_KEY = "orbit-climb-best";
 
+// Mỗi zone: màu nền, màu chấm halftone, và 3 màu mực dành cho hành tinh
 const ZONES = [
-  { top: [40, 70, 140], bottom: [120, 170, 230], nebula: [90, 160, 255] },
-  { top: [30, 50, 120], bottom: [90, 130, 210], nebula: [120, 140, 255] },
-  { top: [25, 30, 95], bottom: [70, 80, 170], nebula: [140, 110, 255] },
-  { top: [15, 15, 60], bottom: [50, 40, 120], nebula: [90, 80, 220] },
-  { top: [10, 10, 35], bottom: [45, 45, 70], nebula: [160, 160, 200] },
-  { top: [25, 8, 20], bottom: [90, 35, 30], nebula: [255, 110, 70] },
-  { top: [12, 8, 30], bottom: [60, 40, 80], nebula: [200, 90, 255] },
-  { top: [30, 15, 10], bottom: [110, 70, 40], nebula: [255, 160, 80] },
-  { top: [5, 10, 25], bottom: [20, 60, 80], nebula: [60, 220, 220] },
-  { top: [10, 0, 25], bottom: [70, 10, 90], nebula: [255, 60, 200] },
-  { top: [0, 0, 0], bottom: [15, 15, 30], nebula: [120, 120, 255] },
+  { bg: [47, 143, 149], tone: [246, 236, 214], planets: [CORAL, MUSTARD, PAPER] },
+  { bg: [44, 116, 150], tone: [90, 180, 190], planets: [CORAL, MUSTARD, PAPER] },
+  { bg: [40, 88, 140], tone: [44, 116, 150], planets: [CORAL, MUSTARD, PAPER] },
+  { bg: [33, 60, 110], tone: [40, 88, 140], planets: [CORAL, MUSTARD, TEAL] },
+  { bg: [27, 35, 64], tone: [33, 60, 110], planets: [PAPER, CORAL, TEAL] },
+  { bg: [90, 31, 42], tone: [242, 107, 74], planets: [MUSTARD, PAPER, CORAL] },
+  { bg: [51, 32, 74], tone: [229, 143, 163], planets: [MUSTARD, TEAL, PINK] },
+  { bg: [74, 42, 20], tone: [242, 154, 60], planets: [PAPER, MUSTARD, CORAL] },
+  { bg: [15, 59, 63], tone: [87, 184, 165], planets: [CORAL, PAPER, MUSTARD] },
+  { bg: [20, 20, 42], tone: [224, 69, 123], planets: [TEAL, PINK, MUSTARD] },
+  { bg: [11, 11, 15], tone: [60, 60, 70], planets: [PAPER, CORAL, MUSTARD] },
 ];
 
 // ---------- Helpers ----------
@@ -96,7 +97,7 @@ function makeNode(index, prev) {
     life: Math.max(1.6, 4.5 - level * 0.035),
     timer: 0,
     vx: 0,
-    look: randomPlanetLook(),
+    look: randomPlanetLook(zoneOf(index).planets),
   };
   node.sprite = createPlanetSprite(R, node.look);
 
@@ -139,9 +140,8 @@ let overAt;
 let newRecord;
 let beatBest;
 let banner;
-let bgTop;
-let bgBottom;
-let bgNebula;
+let bgColor;
+let bgTone;
 let time = 0;
 
 function resetGame() {
@@ -170,9 +170,8 @@ function resetGame() {
   newRecord = false;
   beatBest = false;
   banner = null;
-  bgTop = ZONES[0].top;
-  bgBottom = ZONES[0].bottom;
-  bgNebula = ZONES[0].nebula;
+  bgColor = ZONES[0].bg;
+  bgTone = ZONES[0].tone;
   ensureNodes();
 }
 
@@ -225,23 +224,23 @@ function capture(index) {
   if (perfect) {
     combo++;
     maxCombo = Math.max(maxCombo, combo);
-    popup(combo > 1 ? `PERFECT x${combo}` : "PERFECT", node.x, node.y - node.capture - 10, "#ffe066");
-    burst(player.x, player.y, "#ffe066", 18 + combo * 2, 220);
+    popup(combo > 1 ? `PERFECT x${combo}` : "PERFECT", node.x, node.y - node.capture - 10, MUSTARD, 26);
+    burst(player.x, player.y, MUSTARD, 18 + combo * 2, 220);
     beep(660 + Math.min(combo, 12) * 60, 0.14, "sine", 0.16);
   } else {
     combo = 0;
-    burst(player.x, player.y, "#ffffff", 10, 140);
+    burst(player.x, player.y, PAPER, 10, 140);
     beep(440, 0.1, "sine", 0.12);
   }
 
   if (skipped > 0) {
-    popup(t("skip", { n: skipped + 1 }), node.x, node.y + node.capture + 24, "#7cf7c8", 18);
+    popup(t("skip", { n: skipped + 1 }), node.x, node.y + node.capture + 24, TEAL, 20);
   }
 
   if (best > 0 && score > best && !newRecord) {
     newRecord = true;
-    popup(t("newRecord"), W / 2, camY + H * 0.3, "#ff7ab8", 30);
-    burst(W / 2, camY + H * 0.3, "#ff7ab8", 40, 300);
+    popup(t("newRecord"), W / 2, camY + H * 0.3, CORAL, 36);
+    burst(W / 2, camY + H * 0.3, CORAL, 40, 300);
     beep(880, 0.3, "square", 0.08);
   }
 
@@ -258,7 +257,7 @@ function die(reason) {
   overAt = performance.now();
   shake = 14;
   combo = 0;
-  burst(player.x, player.y, "#ff5c7a", 40, 260);
+  burst(player.x, player.y, CORAL, 40, 260);
   beep(160, 0.4, "sawtooth", 0.12);
   if (score > best) {
     beatBest = true;
@@ -318,7 +317,7 @@ function updatePlayer(dt) {
     if (state === "play") {
       node.timer += dt;
       if (node.timer >= node.life) {
-        burst(node.x, node.y, `rgb(${node.look.glow})`, 40, 220);
+        burst(node.x, node.y, node.look.fill, 40, 220);
         die("collapse");
       }
     }
@@ -376,9 +375,8 @@ function updateEffects(dt) {
   shake = Math.max(0, shake - dt * 40);
 
   const zone = zoneOf(score);
-  bgTop = lerpColor(bgTop, zone.top, Math.min(1, dt * 1.5));
-  bgBottom = lerpColor(bgBottom, zone.bottom, Math.min(1, dt * 1.5));
-  bgNebula = lerpColor(bgNebula, zone.nebula, Math.min(1, dt * 1.5));
+  bgColor = lerpColor(bgColor, zone.bg, Math.min(1, dt * 1.5));
+  bgTone = lerpColor(bgTone, zone.tone, Math.min(1, dt * 1.5));
 }
 
 function update(dt) {
@@ -390,52 +388,88 @@ function update(dt) {
 }
 
 // ---------- Render ----------
-const FONT = '"Baloo 2", system-ui, sans-serif';
-let vignette = null;
+// Luật của phong cách tranh in: mực phẳng, không gradient mềm, không glow, góc vuông.
+const DISPLAY = '"Anton", Impact, "Arial Narrow", sans-serif';
+const TEXT = '"Barlow Condensed", "Arial Narrow", sans-serif';
+let toneCache = { key: "", canvas: null };
 
-function pill(x, y, w, h, fill) {
-  ctx.fillStyle = fill;
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, h / 2);
-  ctx.fill();
+// Chữ in 2 lớp: lớp bóng lệch + lớp màu
+function printText(text, x, y, color, shadow = INK, offset = 2) {
+  ctx.fillStyle = shadow;
+  ctx.fillText(text, x + offset, y + offset);
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, y);
+}
+
+function setFont(family, weight, size, spacing = 0) {
+  ctx.font = `${weight} ${size}px ${family}`;
+  ctx.letterSpacing = `${spacing}px`;
+}
+
+// Dải chấm halftone ở nửa dưới màn hình thay cho gradient trời. Cache lại vì chỉ đổi khi chuyển zone.
+function toneLayer() {
+  const key = rgb(bgTone);
+  if (toneCache.key === key) return toneCache.canvas;
+  const c = toneCache.canvas || document.createElement("canvas");
+  c.width = W * 2;
+  c.height = H * 2;
+  const g = c.getContext("2d");
+  g.scale(2, 2);
+  g.fillStyle = key;
+  g.beginPath();
+  const step = 12;
+  const from = H * 0.5;
+  let row = 0;
+  for (let y = from; y < H + step; y += step * 0.5) {
+    const shift = row % 2 === 0 ? 0 : step * 0.5;
+    const r = ((y - from) / (H - from)) * step * 0.24;
+    row++;
+    if (r < 0.4) continue;
+    for (let x = shift; x < W + step; x += step) {
+      g.moveTo(x + r, y);
+      g.arc(x, y, r, 0, Math.PI * 2);
+    }
+  }
+  g.fill();
+  toneCache = { key, canvas: c };
+  return c;
 }
 
 function drawBackground() {
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, rgb(bgTop));
-  grad.addColorStop(1, rgb(bgBottom));
-  ctx.fillStyle = grad;
+  ctx.fillStyle = rgb(bgColor);
   ctx.fillRect(0, 0, W, H);
 
+  // thiên thể lớn phía xa, trôi rất chậm
+  const farY = ((((260 - camY * 0.03) % 1300) + 1300) % 1300) - 200;
+  // pha màu giữa nền và tone để nó lùi ra sau, không bao giờ trùng màu mực của hành tinh
+  ctx.fillStyle = rgb(lerpColor(bgColor, bgTone, 0.3));
+  ctx.beginPath();
+  ctx.arc(320, farY, 70, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.drawImage(toneLayer(), 0, 0, W, H);
+
+  // sao: càng lên cao càng hiện nhiều (hiện/ẩn hẳn, không mờ dần)
   const space = clamp(score / 20, 0, 1);
-  ctx.globalCompositeOperation = "lighter";
-
-  // tinh vân trôi chậm phía xa
-  for (const n of nebulas) {
-    const y = ((((n.y - camY * 0.06) % 1500) + 1500) % 1500) - 400;
-    const g = ctx.createRadialGradient(n.x, y, 0, n.x, y, n.r);
-    g.addColorStop(0, rgb(bgNebula, 0.08 + space * 0.2));
-    g.addColorStop(1, rgb(bgNebula, 0));
-    ctx.fillStyle = g;
-    ctx.fillRect(n.x - n.r, y - n.r, n.r * 2, n.r * 2);
-  }
-
-  // 3 lớp sao parallax, lấp lánh
-  const starAlpha = 0.12 + space * 0.88;
+  ctx.fillStyle = PAPER;
+  ctx.beginPath();
   for (const layer of starLayers) {
     for (const s of layer) {
+      if (s.order > 0.12 + space * 0.88) continue;
       const y = (((s.y - camY * s.depth) % H) + H) % H;
-      const twinkle = 0.55 + 0.45 * Math.sin(time * 2.5 + s.phase);
-      ctx.fillStyle = `rgba(255,255,255,${starAlpha * twinkle})`;
-      ctx.beginPath();
-      ctx.arc(s.x, y, s.size, 0, Math.PI * 2);
-      ctx.fill();
+      if (s.sparkle) {
+        const big = Math.sin(time * 2 + s.phase) > 0;
+        starPath(ctx, s.x, y, s.size * (big ? 2.4 : 1.6));
+      } else {
+        ctx.moveTo(s.x + s.size * 0.6, y);
+        ctx.arc(s.x, y, s.size * 0.6, 0, Math.PI * 2);
+      }
     }
   }
-  ctx.globalCompositeOperation = "source-over";
+  ctx.fill();
 
-  // mây chỉ có ở tầng thấp, tan dần khi leo lên
-  const cloudAlpha = clamp(1 - score / 14, 0, 1) * 0.5;
+  // mây chỉ có ở tầng thấp
+  const cloudAlpha = clamp(1 - score / 14, 0, 1);
   if (cloudAlpha > 0) {
     ctx.globalAlpha = cloudAlpha;
     for (const c of clouds) {
@@ -448,50 +482,35 @@ function drawBackground() {
 
 function drawGround() {
   const top = 170;
-  if (camY + H < top - 30) return;
-  const R = 1500;
-  ctx.save();
-  ctx.shadowColor = "rgba(140,220,255,0.9)";
-  ctx.shadowBlur = 30;
-  const g = ctx.createLinearGradient(0, top, 0, top + 260);
-  g.addColorStop(0, "#3fae84");
-  g.addColorStop(0.15, "#1d6b5a");
-  g.addColorStop(1, "#071a22");
-  ctx.fillStyle = g;
+  if (camY + H < top - 60) return;
+  ctx.fillStyle = MUSTARD;
   ctx.beginPath();
-  ctx.arc(W / 2, top + R, R, 0, Math.PI * 2);
+  ctx.arc(W / 2 - 150, top - 30 + 700, 700, 0, Math.PI * 2);
   ctx.fill();
-  ctx.restore();
-  ctx.strokeStyle = "rgba(190,240,255,0.8)";
-  ctx.lineWidth = 2;
+  ctx.fillStyle = INK;
   ctx.beginPath();
-  ctx.arc(W / 2, top + R, R, Math.PI * 1.4, Math.PI * 1.6);
-  ctx.stroke();
+  ctx.arc(W / 2 + 40, top + 1500, 1500, 0, Math.PI * 2);
+  ctx.fill();
 }
 
-function drawMarkerLine(y, color, label, strong) {
-  ctx.save();
-  const g = ctx.createLinearGradient(0, 0, W, 0);
-  g.addColorStop(0, "rgba(0,0,0,0)");
-  g.addColorStop(0.5, color);
-  g.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.strokeStyle = g;
-  ctx.lineWidth = strong ? 2.5 : 1.5;
-  if (strong) {
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 12;
-  }
-  ctx.setLineDash(strong ? [] : [6, 8]);
+function drawMarkerLine(y, label, strong) {
+  const color = strong ? MUSTARD : PAPER;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = strong ? 3 : 2;
+  ctx.setLineDash(strong ? [] : [2, 8]);
   ctx.beginPath();
   ctx.moveTo(0, y);
   ctx.lineTo(W, y);
   ctx.stroke();
-  ctx.restore();
+  ctx.setLineDash([]);
 
-  ctx.font = `700 12px ${FONT}`;
-  const w = ctx.measureText(label).width + 20;
-  pill(W / 2 - w / 2, y - 11, w, 22, strong ? color : "rgba(10,12,30,0.65)");
-  ctx.fillStyle = strong ? "#2a1a00" : "rgba(255,255,255,0.8)";
+  setFont(TEXT, 700, 13, 1.5);
+  const w = ctx.measureText(label).width + 18;
+  ctx.fillStyle = INK;
+  ctx.fillRect(W / 2 - w / 2 + 3, y - 11 + 3, w, 22);
+  ctx.fillStyle = color;
+  ctx.fillRect(W / 2 - w / 2, y - 11, w, 22);
+  ctx.fillStyle = INK;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(label, W / 2, y + 1);
@@ -502,30 +521,26 @@ function drawMarkers() {
   // Mốc zone phía trước: cho người chơi thấy "đích" kế tiếp
   for (let i = ZONE_SIZE; i < nodes.length; i += ZONE_SIZE) {
     if (i <= score) continue;
-    drawMarkerLine(nodes[i].y + 70, "rgba(255,255,255,0.35)", `ZONE ${i / ZONE_SIZE + 1} · ${zoneName(i)}`, false);
+    drawMarkerLine(nodes[i].y + 70, `ZONE ${i / ZONE_SIZE + 1} · ${zoneName(i).toUpperCase()}`, false);
   }
   // Vạch kỷ lục — mục tiêu cần chinh phục
   if (best > 0 && nodes[best] && !newRecord) {
-    drawMarkerLine(nodes[best].y + 50, "#ffd23f", t("bestLine", { n: best }), true);
+    drawMarkerLine(nodes[best].y + 50, t("bestLine", { n: best }), true);
   }
 }
 
 function drawCaptureField(node, isTarget, index) {
-  const glow = node.look.glow;
-  const pulse = isTarget ? 0.5 + 0.5 * Math.sin(time * 5) : 0;
-  const g = ctx.createRadialGradient(node.x, node.y, node.R, node.x, node.y, node.capture);
-  g.addColorStop(0, `rgba(${glow},0)`);
-  g.addColorStop(0.7, `rgba(${glow},0.05)`);
-  g.addColorStop(1, `rgba(${glow},${0.14 + pulse * 0.1})`);
-  ctx.fillStyle = g;
+  ctx.globalAlpha = isTarget ? 0.14 : 0.07;
+  ctx.fillStyle = PAPER;
   ctx.beginPath();
   ctx.arc(node.x, node.y, node.capture, 0, Math.PI * 2);
   ctx.fill();
+  ctx.globalAlpha = 1;
 
-  ctx.strokeStyle = `rgba(${glow},${isTarget ? 0.85 : 0.4})`;
-  ctx.lineWidth = isTarget ? 2 : 1.5;
-  ctx.setLineDash([3, 7]);
-  ctx.lineDashOffset = time * 14 * (index % 2 === 0 ? 1 : -1);
+  ctx.strokeStyle = PAPER;
+  ctx.lineWidth = isTarget ? 2.5 : 1.5;
+  ctx.setLineDash(isTarget ? [9, 6] : [2, 6]);
+  ctx.lineDashOffset = time * 12 * (index % 2 === 0 ? 1 : -1);
   ctx.beginPath();
   ctx.arc(node.x, node.y, node.capture, 0, Math.PI * 2);
   ctx.stroke();
@@ -534,9 +549,8 @@ function drawCaptureField(node, isTarget, index) {
 
 function drawMotionStreak(node) {
   const back = node.vx > 0 ? -1 : 1;
-  ctx.strokeStyle = `rgba(${node.look.glow},0.5)`;
+  ctx.strokeStyle = PAPER;
   ctx.lineWidth = 2;
-  ctx.lineCap = "round";
   for (let k = -1; k <= 1; k++) {
     const sx = node.x + back * (node.R + 8);
     const sy = node.y + k * node.R * 0.5;
@@ -545,30 +559,18 @@ function drawMotionStreak(node) {
     ctx.lineTo(sx + back * (14 - Math.abs(k) * 5), sy);
     ctx.stroke();
   }
-  ctx.lineCap = "butt";
 }
 
 function drawTimer(node, x, y, danger) {
   const r = node.R + ORBIT_GAP + 9;
   const start = -Math.PI / 2;
-  const left = 1 - danger;
-  ctx.strokeStyle = "rgba(255,255,255,0.12)";
-  ctx.lineWidth = 3;
+  // sắp sụp: nhấp nháy 2 màu mực thay vì phát sáng
+  const blink = danger > 0.65 && Math.floor(time * 10) % 2 === 0;
+  ctx.strokeStyle = blink ? CORAL : PAPER;
+  ctx.lineWidth = 4;
   ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.arc(x, y, r, start, start + (1 - danger) * Math.PI * 2);
   ctx.stroke();
-
-  const color = danger > 0.65 ? "#ff4d6d" : "#ffffff";
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 10;
-  ctx.lineWidth = 3.5;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.arc(x, y, r, start, start + left * Math.PI * 2);
-  ctx.stroke();
-  ctx.restore();
 }
 
 function drawNodes() {
@@ -594,31 +596,23 @@ function drawNodes() {
     drawSprite(ctx, node.sprite, x, y);
     ctx.globalAlpha = 1;
 
-    if (danger > 0.65) {
-      ctx.fillStyle = `rgba(255,50,80,${(danger - 0.65) * 1.4})`;
-      ctx.beginPath();
-      ctx.arc(x, y, node.R, 0, Math.PI * 2);
-      ctx.fill();
-    }
     if (ticking) drawTimer(node, x, y, danger);
   });
 }
 
 function cometColor() {
-  if (combo >= 3) return "255,205,90";
-  return "130,225,255";
+  if (combo >= 3) return MUSTARD;
+  return PAPER;
 }
 
 function drawPlayer() {
   const color = cometColor();
   const trail = player.trail;
 
-  ctx.globalCompositeOperation = "lighter";
   ctx.lineCap = "round";
+  ctx.strokeStyle = color;
   for (let i = 1; i < trail.length; i++) {
-    const t = i / trail.length;
-    ctx.strokeStyle = `rgba(${color},${t * 0.55})`;
-    ctx.lineWidth = t * 10;
+    ctx.lineWidth = (i / trail.length) * 9;
     ctx.beginPath();
     ctx.moveTo(trail[i - 1].x, trail[i - 1].y);
     ctx.lineTo(trail[i].x, trail[i].y);
@@ -626,192 +620,128 @@ function drawPlayer() {
   }
   ctx.lineCap = "butt";
 
-  if (player.mode === "dead") {
-    ctx.globalCompositeOperation = "source-over";
-    return;
-  }
+  if (player.mode === "dead") return;
 
-  // Chấm ngắm mờ khi đang quay, giúp người mới hiểu hướng phóng
+  // Chấm ngắm khi đang quay, giúp người mới hiểu hướng phóng
   if (player.mode === "orbit" && score < 5) {
     const dx = -Math.sin(player.angle) * player.dir;
     const dy = Math.cos(player.angle) * player.dir;
-    for (let k = 1; k <= 9; k++) {
-      ctx.fillStyle = `rgba(255,255,255,${0.45 - k * 0.045})`;
+    ctx.fillStyle = PAPER;
+    for (let k = 1; k <= 8; k++) {
       ctx.beginPath();
-      ctx.arc(player.x + dx * k * 16, player.y + dy * k * 16, 2, 0, Math.PI * 2);
+      ctx.arc(player.x + dx * k * 16, player.y + dy * k * 16, 2.6 - k * 0.22, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
-  const glow = ctx.createRadialGradient(player.x, player.y, 0, player.x, player.y, 22);
-  glow.addColorStop(0, "rgba(255,255,255,1)");
-  glow.addColorStop(0.25, `rgba(${color},0.7)`);
-  glow.addColorStop(1, `rgba(${color},0)`);
-  ctx.fillStyle = glow;
+  ctx.fillStyle = INK;
   ctx.beginPath();
-  ctx.arc(player.x, player.y, 22, 0, Math.PI * 2);
+  ctx.arc(player.x + MISPRINT, player.y + MISPRINT, 8, 0, Math.PI * 2);
   ctx.fill();
-  ctx.globalCompositeOperation = "source-over";
-
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = color;
   ctx.beginPath();
-  ctx.arc(player.x, player.y, 5, 0, Math.PI * 2);
+  ctx.arc(player.x, player.y, 7, 0, Math.PI * 2);
   ctx.fill();
 }
 
 function drawEffects() {
-  ctx.globalCompositeOperation = "lighter";
+  // mảnh vụn co nhỏ dần chứ không mờ dần
   for (const p of particles) {
-    ctx.globalAlpha = Math.max(0, p.life);
     ctx.fillStyle = p.color;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, 0.8 + p.life * 2.5, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, Math.max(0, p.life) * 3.6, 0, Math.PI * 2);
     ctx.fill();
   }
-  ctx.globalCompositeOperation = "source-over";
-  ctx.globalAlpha = 1;
 
   ctx.textAlign = "center";
-  ctx.lineJoin = "round";
   for (const p of popups) {
     const age = 1 - p.life;
     const scale = 1 + Math.max(0, 0.4 - age * 3);
     ctx.save();
-    ctx.globalAlpha = clamp(p.life * 1.5, 0, 1);
+    ctx.globalAlpha = clamp(p.life * 3, 0, 1);
     ctx.translate(p.x, p.y);
+    ctx.rotate(-0.06);
     ctx.scale(scale, scale);
-    ctx.font = `800 ${p.size}px ${FONT}`;
-    ctx.strokeStyle = "rgba(10,10,30,0.55)";
-    ctx.lineWidth = 5;
-    ctx.strokeText(p.text, 0, 0);
-    ctx.fillStyle = p.color;
-    ctx.fillText(p.text, 0, 0);
+    setFont(DISPLAY, 400, p.size, 1);
+    printText(p.text, 0, 0, p.color);
     ctx.restore();
   }
-}
-
-function drawVignette() {
-  if (!vignette) {
-    vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.75);
-    vignette.addColorStop(0, "rgba(0,0,0,0)");
-    vignette.addColorStop(1, "rgba(0,0,10,0.5)");
-  }
-  ctx.fillStyle = vignette;
-  ctx.fillRect(0, 0, W, H);
 }
 
 function drawHud() {
   ctx.textAlign = "center";
-  ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,0.4)";
-  ctx.shadowBlur = 14;
-  ctx.shadowOffsetY = 3;
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `800 64px ${FONT}`;
-  ctx.fillText(String(score), W / 2, 82);
-  ctx.restore();
+  setFont(DISPLAY, 400, 66);
+  printText(String(score), W / 2, 84, PAPER, INK, 3);
 
-  // Thanh tiến độ tới zone kế tiếp, tên zone nằm trong thanh
-  const bw = 180;
+  // Thanh tiến độ tới zone kế tiếp
+  const bw = 150;
   const bx = W / 2 - bw / 2;
-  const by = 96;
+  const by = 98;
   const progress = (score % ZONE_SIZE) / ZONE_SIZE;
-  pill(bx, by, bw, 24, "rgba(5,8,25,0.45)");
-  if (progress > 0) {
-    const fill = ctx.createLinearGradient(bx, 0, bx + bw, 0);
-    fill.addColorStop(0, "rgba(90,240,200,0.55)");
-    fill.addColorStop(1, "rgba(120,170,255,0.55)");
-    pill(bx, by, Math.max(24, bw * progress), 24, fill);
-  }
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `700 13px ${FONT}`;
-  ctx.textBaseline = "middle";
-  ctx.fillText(zoneName(score), W / 2, by + 13);
+  ctx.fillStyle = INK;
+  ctx.fillRect(bx, by, bw, 8);
+  ctx.fillStyle = MUSTARD;
+  ctx.fillRect(bx, by, bw * progress, 8);
+  setFont(TEXT, 700, 14, 2);
+  printText(zoneName(score).toUpperCase(), W / 2, by + 28, PAPER, INK, 1.5);
 
-  // Best
-  ctx.font = `800 14px ${FONT}`;
-  const bestText = `★ ${Math.max(best, score)}`;
-  const tw = ctx.measureText(bestText).width + 22;
-  pill(W - tw - 12, 14, tw, 26, "rgba(5,8,25,0.45)");
-  ctx.fillStyle = "#ffd23f";
-  ctx.fillText(bestText, W - 12 - tw / 2, 28);
+  ctx.textAlign = "right";
+  setFont(DISPLAY, 400, 18, 1);
+  printText(`★ ${Math.max(best, score)}`, W - 16, 34, MUSTARD);
 
   if (combo >= 2) {
-    ctx.font = `800 15px ${FONT}`;
-    ctx.fillStyle = "#ffd23f";
-    ctx.fillText(`COMBO x${combo}`, W / 2, by + 42);
+    ctx.textAlign = "center";
+    setFont(DISPLAY, 400, 18, 1);
+    printText(`COMBO x${combo}`, W / 2, by + 54, MUSTARD);
   }
-  ctx.textBaseline = "alphabetic";
 
   if (banner) {
-    const a = clamp(banner.life, 0, 1);
     const cy = H * 0.4;
-    ctx.globalAlpha = a;
-    const band = ctx.createLinearGradient(0, 0, W, 0);
-    band.addColorStop(0, "rgba(5,8,25,0)");
-    band.addColorStop(0.5, "rgba(5,8,25,0.6)");
-    band.addColorStop(1, "rgba(5,8,25,0)");
-    ctx.fillStyle = band;
-    ctx.fillRect(0, cy - 46, W, 82);
-    ctx.fillStyle = "#7cf7c8";
-    ctx.font = `700 14px ${FONT}`;
+    ctx.globalAlpha = clamp(banner.life * 2, 0, 1);
+    ctx.textAlign = "center";
+    ctx.fillStyle = INK;
+    ctx.fillRect(0, cy - 44 + 6, W, 88);
+    ctx.fillStyle = MUSTARD;
+    ctx.fillRect(0, cy - 44, W, 88);
+    ctx.fillStyle = INK;
+    setFont(TEXT, 700, 14, 2);
     ctx.fillText(t("zoneUnlocked", { n: Math.floor(score / ZONE_SIZE) + 1 }), W / 2, cy - 18);
-    ctx.save();
-    ctx.shadowColor = "rgba(124,247,200,0.8)";
-    ctx.shadowBlur = 18;
-    ctx.fillStyle = "#ffffff";
-    ctx.font = `800 34px ${FONT}`;
-    ctx.fillText(banner.text, W / 2, cy + 20);
-    ctx.restore();
+    setFont(DISPLAY, 400, 38, 1);
+    ctx.fillText(banner.text.toUpperCase(), W / 2, cy + 26);
     ctx.globalAlpha = 1;
   }
 }
 
-function drawTitle(text, y, size) {
-  ctx.save();
-  const g = ctx.createLinearGradient(0, y - size, 0, y);
-  g.addColorStop(0, "#ffffff");
-  g.addColorStop(1, "#9fe8ff");
-  ctx.shadowColor = "rgba(120,220,255,0.9)";
-  ctx.shadowBlur = 24;
-  ctx.fillStyle = g;
-  ctx.font = `800 ${size}px ${FONT}`;
-  ctx.fillText(text, W / 2, y);
-  ctx.restore();
-}
-
 function drawTapHint(text, y) {
-  const a = 0.6 + 0.4 * Math.sin(time * 4);
-  ctx.font = `800 15px ${FONT}`;
-  const w = ctx.measureText(text).width + 44;
-  ctx.globalAlpha = a;
-  pill(W / 2 - w / 2, y - 22, w, 44, "rgba(255,255,255,0.14)");
-  ctx.strokeStyle = "rgba(255,255,255,0.6)";
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.roundRect(W / 2 - w / 2, y - 22, w, 44, 22);
-  ctx.stroke();
-  ctx.fillStyle = "#ffffff";
+  const bob = Math.sin(time * 4) * 2;
+  setFont(DISPLAY, 400, 20, 1.5);
+  const w = ctx.measureText(text).width + 48;
+  ctx.fillStyle = INK;
+  ctx.fillRect(W / 2 - w / 2 + 5, y - 23 + 5, w, 46);
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(W / 2 - w / 2, y - 23 + bob, w, 46);
+  ctx.fillStyle = INK;
+  ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(text, W / 2, y + 1);
+  ctx.fillText(text, W / 2, y + 2 + bob);
   ctx.textBaseline = "alphabetic";
-  ctx.globalAlpha = 1;
 }
 
-const LANG_BUTTON = { x: W - 96, y: 16, w: 80, h: 30 };
+const LANG_BUTTON = { x: W - 92, y: 16, w: 76, h: 28 };
 
 function drawLangToggle() {
   const b = LANG_BUTTON;
-  pill(b.x, b.y, b.w, b.h, "rgba(5,8,25,0.5)");
   const half = b.w / 2;
-  const activeX = lang === "en" ? b.x : b.x + half;
-  pill(activeX + 3, b.y + 3, half - 6, b.h - 6, "rgba(255,255,255,0.9)");
-  ctx.font = `800 13px ${FONT}`;
+  ctx.fillStyle = INK;
+  ctx.fillRect(b.x - 3, b.y - 3, b.w + 6, b.h + 6);
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(lang === "en" ? b.x : b.x + half, b.y, half, b.h);
+  setFont(TEXT, 700, 15, 1);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = lang === "en" ? "#14163a" : "rgba(255,255,255,0.75)";
+  ctx.fillStyle = lang === "en" ? INK : PAPER;
   ctx.fillText("EN", b.x + half / 2, b.y + b.h / 2 + 1);
-  ctx.fillStyle = lang === "vi" ? "#14163a" : "rgba(255,255,255,0.75)";
+  ctx.fillStyle = lang === "vi" ? INK : PAPER;
   ctx.fillText("VI", b.x + half + half / 2, b.y + b.h / 2 + 1);
   ctx.textBaseline = "alphabetic";
 }
@@ -823,89 +753,99 @@ function isOnLangButton(point) {
 }
 
 function drawReadyScreen() {
-  const shade = ctx.createLinearGradient(0, 0, 0, H * 0.5);
-  shade.addColorStop(0, "rgba(5,8,25,0.55)");
-  shade.addColorStop(1, "rgba(5,8,25,0)");
-  ctx.fillStyle = shade;
-  ctx.fillRect(0, 0, W, H * 0.5);
-
   ctx.textAlign = "center";
-  drawTitle("ORBIT", H * 0.14, 68);
-  drawTitle("CLIMB", H * 0.14 + 60, 68);
+  setFont(DISPLAY, 400, 80, 2);
+  printText("ORBIT", W / 2, H * 0.2, PAPER, CORAL, 4);
+  printText("CLIMB", W / 2, H * 0.2 + 78, PAPER, CORAL, 4);
 
-  ctx.font = `600 15px ${FONT}`;
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.fillText(t("howto1"), W / 2, H * 0.14 + 100);
-  ctx.fillText(t("howto2"), W / 2, H * 0.14 + 122);
+  setFont(TEXT, 600, 18, 0.5);
+  printText(t("howto1"), W / 2, H * 0.2 + 116, PAPER, INK, 1.5);
+  printText(t("howto2"), W / 2, H * 0.2 + 140, PAPER, INK, 1.5);
 
   if (best > 0) {
-    ctx.font = `800 16px ${FONT}`;
-    ctx.fillStyle = "#ffd23f";
-    ctx.fillText(t("bestReady", { n: best }), W / 2, H * 0.14 + 156);
+    setFont(DISPLAY, 400, 20, 1);
+    printText(t("bestReady", { n: best }), W / 2, H * 0.2 + 178, MUSTARD);
   }
   drawTapHint(t("tapLaunch"), H * 0.9);
   drawLangToggle();
 }
 
 function drawStat(label, value, cx, y) {
-  ctx.fillStyle = "rgba(255,255,255,0.55)";
-  ctx.font = `700 11px ${FONT}`;
+  ctx.fillStyle = INK;
+  setFont(TEXT, 700, 12, 2);
   ctx.fillText(label, cx, y);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `800 17px ${FONT}`;
-  ctx.fillText(value, cx, y + 22);
+  setFont(DISPLAY, 400, 20, 0.5);
+  ctx.fillText(value, cx, y + 26);
 }
 
+// Màn kết thúc là một tấm "vé hành trình" bằng giấy, đặt hơi nghiêng
 function drawOverScreen() {
-  ctx.fillStyle = "rgba(5,6,20,0.65)";
+  ctx.globalAlpha = 0.6;
+  ctx.fillStyle = INK;
   ctx.fillRect(0, 0, W, H);
+  ctx.globalAlpha = 1;
   ctx.textAlign = "center";
 
-  const cx = 30;
-  const cy = H * 0.2;
-  const cw = W - 60;
-  const ch = 330;
+  const cw = W - 68;
+  const ch = 356;
+  const top = -ch / 2;
   ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,0.5)";
-  ctx.shadowBlur = 30;
-  ctx.fillStyle = "rgba(22,24,52,0.94)";
+  ctx.translate(W / 2, H * 0.44);
+  ctx.rotate(-0.035);
+
+  ctx.fillStyle = INK;
+  ctx.fillRect(-cw / 2 + 7, top + 7, cw, ch);
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(-cw / 2, top, cw, ch);
+  ctx.fillStyle = CORAL;
+  ctx.fillRect(-cw / 2, top, cw, 44);
+
+  ctx.fillStyle = PAPER;
+  setFont(TEXT, 700, 17, 0.5);
+  ctx.fillText(t(deathReason), 0, top + 29);
+
+  ctx.fillStyle = INK;
+  setFont(TEXT, 700, 13, 3);
+  ctx.fillText(t("height"), 0, top + 76);
+  setFont(DISPLAY, 400, 112);
+  printText(String(score), 0, top + 186, INK, CORAL, 5);
+
+  // đường răng cưa xé vé
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 6]);
   ctx.beginPath();
-  ctx.roundRect(cx, cy, cw, ch, 24);
-  ctx.fill();
-  ctx.restore();
-  ctx.strokeStyle = "rgba(255,255,255,0.08)";
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.roundRect(cx, cy, cw, ch, 24);
+  ctx.moveTo(-cw / 2 + 18, top + 212);
+  ctx.lineTo(cw / 2 - 18, top + 212);
   ctx.stroke();
+  ctx.setLineDash([]);
 
-  ctx.fillStyle = "#ff8fa3";
-  ctx.font = `700 15px ${FONT}`;
-  ctx.fillText(t(deathReason), W / 2, cy + 40);
-
-  ctx.fillStyle = "rgba(255,255,255,0.55)";
-  ctx.font = `700 12px ${FONT}`;
-  ctx.fillText(t("height"), W / 2, cy + 78);
-  drawTitle(String(score), cy + 160, 92);
-
-  ctx.fillStyle = "rgba(255,255,255,0.08)";
-  ctx.fillRect(cx + 24, cy + 190, cw - 48, 1);
-  drawStat(t("statZone"), zoneName(score), W / 2 - 75, cy + 222);
-  drawStat(t("statCombo"), `x${maxCombo}`, W / 2 + 75, cy + 222);
+  drawStat(t("statZone"), zoneName(score).toUpperCase(), -cw / 4, top + 240);
+  drawStat(t("statCombo"), `x${maxCombo}`, cw / 4, top + 240);
 
   let recordText = t("recordGap", { best, gap: best - score });
-  if (beatBest) recordText = t("recordNew");
   if (!beatBest && best === score) recordText = t("recordTie", { best });
   if (best === 0) recordText = t("recordFirst");
-  ctx.font = `800 15px ${FONT}`;
-  const recordW = Math.min(cw - 30, ctx.measureText(recordText).width + 40);
-  pill(W / 2 - recordW / 2, cy + 272, recordW, 34, beatBest ? "#ffd23f" : "rgba(255,210,63,0.14)");
-  ctx.fillStyle = beatBest ? "#2a1a00" : "#ffd23f";
-  ctx.textBaseline = "middle";
-  ctx.fillText(recordText, W / 2, cy + 290);
-  ctx.textBaseline = "alphabetic";
 
-  drawTapHint(t("tapRetry"), cy + ch + 60);
+  if (beatBest) {
+    // con dấu đóng lệch
+    ctx.rotate(0.09);
+    setFont(DISPLAY, 400, 24, 2);
+    const stamp = t("recordNew");
+    const sw = ctx.measureText(stamp).width + 28;
+    ctx.strokeStyle = CORAL;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(-sw / 2, top + 296, sw, 42);
+    ctx.fillStyle = CORAL;
+    ctx.fillText(stamp, 0, top + 327);
+  } else {
+    ctx.fillStyle = INK;
+    setFont(TEXT, 700, 17, 0.5);
+    ctx.fillText(recordText, 0, top + 322);
+  }
+  ctx.restore();
+
+  drawTapHint(t("tapRetry"), H * 0.44 + ch / 2 + 70);
 }
 
 function render() {
@@ -924,16 +864,20 @@ function render() {
   drawEffects();
   ctx.restore();
 
-  drawVignette();
   if (state !== "ready") drawHud();
   ctx.restore();
 
-  if (shake > 0) {
-    ctx.fillStyle = `rgba(255,80,110,${(shake / 14) * 0.25})`;
+  if (shake > 8) {
+    ctx.fillStyle = PAPER;
+    ctx.globalAlpha = 0.5;
     ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
   }
   if (state === "ready") drawReadyScreen();
   if (state === "over") drawOverScreen();
+
+  ctx.letterSpacing = "0px";
+  ctx.drawImage(grain, 0, 0, W, H);
 }
 
 // ---------- Setup ----------
