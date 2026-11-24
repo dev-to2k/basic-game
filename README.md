@@ -28,3 +28,11 @@ Mở `index.html` bằng trình duyệt (hoặc `npx serve .`).
 
 - `game.js`: logic game (state, vật lý, input) và phần render mỗi frame.
 - `art.js`: tạo sprite hành tinh, mây, sao và tinh vân. Mỗi sprite vẽ một lần vào offscreen canvas rồi dùng lại ở mọi frame, nên game giữ được 60 FPS.
+
+## Đóng gói để phát hành
+
+```bash
+./build.sh   # tạo dist/orbit-climb.zip
+```
+
+Upload file zip này lên itch.io dưới dạng game HTML5 (chọn "This file will be played in the browser").
