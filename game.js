@@ -12,17 +12,17 @@ const ZONE_SIZE = 10;
 const BEST_KEY = "orbit-climb-best";
 
 const ZONES = [
-  { name: "Mặt đất", top: [40, 70, 140], bottom: [120, 170, 230], nebula: [90, 160, 255] },
-  { name: "Tầng mây", top: [30, 50, 120], bottom: [90, 130, 210], nebula: [120, 140, 255] },
-  { name: "Bình lưu", top: [25, 30, 95], bottom: [70, 80, 170], nebula: [140, 110, 255] },
-  { name: "Quỹ đạo thấp", top: [15, 15, 60], bottom: [50, 40, 120], nebula: [90, 80, 220] },
-  { name: "Mặt Trăng", top: [10, 10, 35], bottom: [45, 45, 70], nebula: [160, 160, 200] },
-  { name: "Sao Hỏa", top: [25, 8, 20], bottom: [90, 35, 30], nebula: [255, 110, 70] },
-  { name: "Vành đai", top: [12, 8, 30], bottom: [60, 40, 80], nebula: [200, 90, 255] },
-  { name: "Sao Mộc", top: [30, 15, 10], bottom: [110, 70, 40], nebula: [255, 160, 80] },
-  { name: "Rìa hệ Mặt Trời", top: [5, 10, 25], bottom: [20, 60, 80], nebula: [60, 220, 220] },
-  { name: "Liên sao", top: [10, 0, 25], bottom: [70, 10, 90], nebula: [255, 60, 200] },
-  { name: "Vô tận", top: [0, 0, 0], bottom: [15, 15, 30], nebula: [120, 120, 255] },
+  { top: [40, 70, 140], bottom: [120, 170, 230], nebula: [90, 160, 255] },
+  { top: [30, 50, 120], bottom: [90, 130, 210], nebula: [120, 140, 255] },
+  { top: [25, 30, 95], bottom: [70, 80, 170], nebula: [140, 110, 255] },
+  { top: [15, 15, 60], bottom: [50, 40, 120], nebula: [90, 80, 220] },
+  { top: [10, 10, 35], bottom: [45, 45, 70], nebula: [160, 160, 200] },
+  { top: [25, 8, 20], bottom: [90, 35, 30], nebula: [255, 110, 70] },
+  { top: [12, 8, 30], bottom: [60, 40, 80], nebula: [200, 90, 255] },
+  { top: [30, 15, 10], bottom: [110, 70, 40], nebula: [255, 160, 80] },
+  { top: [5, 10, 25], bottom: [20, 60, 80], nebula: [60, 220, 220] },
+  { top: [10, 0, 25], bottom: [70, 10, 90], nebula: [255, 60, 200] },
+  { top: [0, 0, 0], bottom: [15, 15, 30], nebula: [120, 120, 255] },
 ];
 
 // ---------- Helpers ----------
@@ -44,6 +44,11 @@ function rgb(c, alpha = 1) {
 
 function zoneOf(index) {
   return ZONES[Math.min(Math.floor(index / ZONE_SIZE), ZONES.length - 1)];
+}
+
+function zoneName(index) {
+  const names = STRINGS[lang].zones;
+  return names[Math.min(Math.floor(index / ZONE_SIZE), names.length - 1)];
 }
 
 function loadBest() {
@@ -230,18 +235,18 @@ function capture(index) {
   }
 
   if (skipped > 0) {
-    popup(`NHẢY CÓC +${skipped + 1}`, node.x, node.y + node.capture + 24, "#7cf7c8", 18);
+    popup(t("skip", { n: skipped + 1 }), node.x, node.y + node.capture + 24, "#7cf7c8", 18);
   }
 
   if (best > 0 && score > best && !newRecord) {
     newRecord = true;
-    popup("KỶ LỤC MỚI!", W / 2, camY + H * 0.3, "#ff7ab8", 30);
+    popup(t("newRecord"), W / 2, camY + H * 0.3, "#ff7ab8", 30);
     burst(W / 2, camY + H * 0.3, "#ff7ab8", 40, 300);
     beep(880, 0.3, "square", 0.08);
   }
 
   if (Math.floor(score / ZONE_SIZE) > Math.floor(prevScore / ZONE_SIZE)) {
-    banner = { text: zoneOf(score).name, life: 2.2 };
+    banner = { text: zoneName(score), life: 2.2 };
     beep(990, 0.25, "triangle", 0.12);
   }
 }
@@ -262,7 +267,7 @@ function die(reason) {
   }
 }
 
-function handleInput() {
+function handleInput(point) {
   if (!audio) {
     try {
       audio = new (window.AudioContext || window.webkitAudioContext)();
@@ -271,6 +276,10 @@ function handleInput() {
     }
   }
 
+  if (state === "ready" && point && isOnLangButton(point)) {
+    setLang(lang === "en" ? "vi" : "en");
+    return;
+  }
   if (state === "ready") {
     state = "play";
     launch();
@@ -310,7 +319,7 @@ function updatePlayer(dt) {
       node.timer += dt;
       if (node.timer >= node.life) {
         burst(node.x, node.y, `rgb(${node.look.glow})`, 40, 220);
-        die("Hành tinh sụp đổ — phóng nhanh hơn!");
+        die("collapse");
       }
     }
   } else if (player.mode === "fly") {
@@ -328,7 +337,7 @@ function updatePlayer(dt) {
     const outOfView =
       player.x < -20 || player.x > W + 20 || player.y > camY + H + 20 || player.y < camY - 40;
     if (player.mode === "fly" && outOfView) {
-      die("Lạc vào khoảng không...");
+      die("lost");
     }
   }
 
@@ -493,11 +502,11 @@ function drawMarkers() {
   // Mốc zone phía trước: cho người chơi thấy "đích" kế tiếp
   for (let i = ZONE_SIZE; i < nodes.length; i += ZONE_SIZE) {
     if (i <= score) continue;
-    drawMarkerLine(nodes[i].y + 70, "rgba(255,255,255,0.35)", `ZONE ${i / ZONE_SIZE + 1} · ${zoneOf(i).name}`, false);
+    drawMarkerLine(nodes[i].y + 70, "rgba(255,255,255,0.35)", `ZONE ${i / ZONE_SIZE + 1} · ${zoneName(i)}`, false);
   }
   // Vạch kỷ lục — mục tiêu cần chinh phục
   if (best > 0 && nodes[best] && !newRecord) {
-    drawMarkerLine(nodes[best].y + 50, "#ffd23f", `★ KỶ LỤC ${best}`, true);
+    drawMarkerLine(nodes[best].y + 50, "#ffd23f", t("bestLine", { n: best }), true);
   }
 }
 
@@ -717,7 +726,7 @@ function drawHud() {
   ctx.fillStyle = "#ffffff";
   ctx.font = `700 13px ${FONT}`;
   ctx.textBaseline = "middle";
-  ctx.fillText(zoneOf(score).name, W / 2, by + 13);
+  ctx.fillText(zoneName(score), W / 2, by + 13);
 
   // Best
   ctx.font = `800 14px ${FONT}`;
@@ -746,7 +755,7 @@ function drawHud() {
     ctx.fillRect(0, cy - 46, W, 82);
     ctx.fillStyle = "#7cf7c8";
     ctx.font = `700 14px ${FONT}`;
-    ctx.fillText(`ZONE ${Math.floor(score / ZONE_SIZE) + 1} ĐÃ MỞ KHÓA`, W / 2, cy - 18);
+    ctx.fillText(t("zoneUnlocked", { n: Math.floor(score / ZONE_SIZE) + 1 }), W / 2, cy - 18);
     ctx.save();
     ctx.shadowColor = "rgba(124,247,200,0.8)";
     ctx.shadowBlur = 18;
@@ -789,6 +798,30 @@ function drawTapHint(text, y) {
   ctx.globalAlpha = 1;
 }
 
+const LANG_BUTTON = { x: W - 96, y: 16, w: 80, h: 30 };
+
+function drawLangToggle() {
+  const b = LANG_BUTTON;
+  pill(b.x, b.y, b.w, b.h, "rgba(5,8,25,0.5)");
+  const half = b.w / 2;
+  const activeX = lang === "en" ? b.x : b.x + half;
+  pill(activeX + 3, b.y + 3, half - 6, b.h - 6, "rgba(255,255,255,0.9)");
+  ctx.font = `800 13px ${FONT}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = lang === "en" ? "#14163a" : "rgba(255,255,255,0.75)";
+  ctx.fillText("EN", b.x + half / 2, b.y + b.h / 2 + 1);
+  ctx.fillStyle = lang === "vi" ? "#14163a" : "rgba(255,255,255,0.75)";
+  ctx.fillText("VI", b.x + half + half / 2, b.y + b.h / 2 + 1);
+  ctx.textBaseline = "alphabetic";
+}
+
+function isOnLangButton(point) {
+  const b = LANG_BUTTON;
+  // nới vùng chạm thêm 8px cho dễ bấm trên điện thoại
+  return point.x > b.x - 8 && point.x < b.x + b.w + 8 && point.y > b.y - 8 && point.y < b.y + b.h + 8;
+}
+
 function drawReadyScreen() {
   const shade = ctx.createLinearGradient(0, 0, 0, H * 0.5);
   shade.addColorStop(0, "rgba(5,8,25,0.55)");
@@ -802,15 +835,16 @@ function drawReadyScreen() {
 
   ctx.font = `600 15px ${FONT}`;
   ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.fillText("Phóng khỏi quỹ đạo, lọt vào vùng hút kế tiếp", W / 2, H * 0.14 + 100);
-  ctx.fillText("Nhắm trúng tâm để ăn PERFECT", W / 2, H * 0.14 + 122);
+  ctx.fillText(t("howto1"), W / 2, H * 0.14 + 100);
+  ctx.fillText(t("howto2"), W / 2, H * 0.14 + 122);
 
   if (best > 0) {
     ctx.font = `800 16px ${FONT}`;
     ctx.fillStyle = "#ffd23f";
-    ctx.fillText(`★ Kỷ lục: ${best}`, W / 2, H * 0.14 + 156);
+    ctx.fillText(t("bestReady", { n: best }), W / 2, H * 0.14 + 156);
   }
-  drawTapHint("CHẠM ĐỂ PHÓNG", H * 0.9);
+  drawTapHint(t("tapLaunch"), H * 0.9);
+  drawLangToggle();
 }
 
 function drawStat(label, value, cx, y) {
@@ -847,30 +881,31 @@ function drawOverScreen() {
 
   ctx.fillStyle = "#ff8fa3";
   ctx.font = `700 15px ${FONT}`;
-  ctx.fillText(deathReason, W / 2, cy + 40);
+  ctx.fillText(t(deathReason), W / 2, cy + 40);
 
   ctx.fillStyle = "rgba(255,255,255,0.55)";
   ctx.font = `700 12px ${FONT}`;
-  ctx.fillText("ĐỘ CAO CHINH PHỤC", W / 2, cy + 78);
+  ctx.fillText(t("height"), W / 2, cy + 78);
   drawTitle(String(score), cy + 160, 92);
 
   ctx.fillStyle = "rgba(255,255,255,0.08)";
   ctx.fillRect(cx + 24, cy + 190, cw - 48, 1);
-  drawStat("ZONE", zoneOf(score).name, W / 2 - 75, cy + 222);
-  drawStat("COMBO MAX", `x${maxCombo}`, W / 2 + 75, cy + 222);
+  drawStat(t("statZone"), zoneName(score), W / 2 - 75, cy + 222);
+  drawStat(t("statCombo"), `x${maxCombo}`, W / 2 + 75, cy + 222);
 
-  let recordText = `Kỷ lục ${best}, chỉ còn ${best - score} nữa thôi!`;
-  if (beatBest) recordText = "★ KỶ LỤC MỚI ★";
-  if (!beatBest && best === score) recordText = `Bằng kỷ lục ${best}, thêm 1 nữa thôi!`;
-  const recordW = Math.min(cw - 30, ctx.measureText(recordText).width + 60);
+  let recordText = t("recordGap", { best, gap: best - score });
+  if (beatBest) recordText = t("recordNew");
+  if (!beatBest && best === score) recordText = t("recordTie", { best });
+  if (best === 0) recordText = t("recordFirst");
   ctx.font = `800 15px ${FONT}`;
+  const recordW = Math.min(cw - 30, ctx.measureText(recordText).width + 40);
   pill(W / 2 - recordW / 2, cy + 272, recordW, 34, beatBest ? "#ffd23f" : "rgba(255,210,63,0.14)");
   ctx.fillStyle = beatBest ? "#2a1a00" : "#ffd23f";
   ctx.textBaseline = "middle";
   ctx.fillText(recordText, W / 2, cy + 290);
   ctx.textBaseline = "alphabetic";
 
-  drawTapHint("CHẠM ĐỂ CHƠI LẠI", cy + ch + 60);
+  drawTapHint(t("tapRetry"), cy + ch + 60);
 }
 
 function render() {
@@ -927,7 +962,12 @@ function loop(now) {
 
 canvas.addEventListener("pointerdown", (e) => {
   e.preventDefault();
-  handleInput();
+  // đổi toạ độ màn hình về toạ độ logic W x H của game
+  const rect = canvas.getBoundingClientRect();
+  handleInput({
+    x: ((e.clientX - rect.left) / rect.width) * W,
+    y: ((e.clientY - rect.top) / rect.height) * H,
+  });
 });
 
 window.addEventListener("keydown", (e) => {
